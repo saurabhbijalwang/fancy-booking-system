@@ -1,13 +1,13 @@
 package com.example.auction.domain;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 @Entity
-@DiscriminatorValue("UPI")
+@Table(name = "upi_payment")
 public class UpiPayment extends Payment {
-    @Column(name = "upi_id", length = 100)
+    @Column(name = "upi_id", nullable = false, length = 100)
     private String upiId;
 
     protected UpiPayment() {
