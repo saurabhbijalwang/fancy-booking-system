@@ -2,12 +2,12 @@ package com.example.auction.service;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -21,22 +21,18 @@ import com.example.auction.repository.BidderRepository;
 public class UserService {
     private static final int MAX_USERS_PER_REQUEST = 1_000_000;
     private static final int MAX_USERS_PER_TRANSACTION = 2_000;
-    private static final String INSERT_USER_SQL =
-            "INSERT INTO bidder (display_name, email, created_at) VALUES (?, ?, ?)";
-    private static final String FIND_INSERTED_USERS_SQL =
-            "SELECT MIN(id), MAX(id), COUNT(*) FROM bidder WHERE email LIKE ?";
 
-    private final JdbcTemplate jdbcTemplate;
     private final BidderRepository bidderRepository;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     public UserService(
-            JdbcTemplate jdbcTemplate,
             BidderRepository bidderRepository,
             Clock clock,
             PlatformTransactionManager transactionManager) {
-        this.jdbcTemplate = jdbcTemplate;
         this.bidderRepository = bidderRepository;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -67,25 +63,22 @@ public class UserService {
     }
 
     private long[] insertBatch(int start, int end, String batchToken) {
-        OffsetDateTime createdAt = clock.instant().atOffset(ZoneOffset.UTC);
+        Instant createdAt = clock.instant();
+        Long firstId = null;
+        Long lastId = null;
         for (int index = start; index < end; index++) {
             String identifier = "%08d".formatted(index + 1);
-            jdbcTemplate.update(
-                    INSERT_USER_SQL,
+            Bidder bidder = new Bidder(
                     "Bidder-" + identifier,
                     "bidder-" + batchToken + "-" + identifier + "@auction.local",
                     createdAt);
+            entityManager.persist(bidder);
+            if (firstId == null) {
+                firstId = bidder.getId();
+            }
+            lastId = bidder.getId();
         }
-        long[] ids = jdbcTemplate.queryForObject(
-                FIND_INSERTED_USERS_SQL,
-                (resultSet, rowNumber) -> new long[]{
-                        resultSet.getLong(1), resultSet.getLong(2), resultSet.getLong(3)
-                },
-                "bidder-" + batchToken + "-%@auction.local");
-        if (ids == null || ids[2] != end - start) {
-            throw new IllegalStateException("Could not verify the created bidder batch");
-        }
-        return new long[]{ids[0], ids[1]};
+        return new long[]{firstId, lastId};
     }
 
     public List<UserResponse> listUsers(int limit) {

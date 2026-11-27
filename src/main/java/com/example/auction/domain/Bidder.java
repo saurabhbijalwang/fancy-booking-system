@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 import org.hibernate.annotations.Cache;
@@ -22,7 +23,8 @@ import org.hibernate.annotations.Immutable;
 @Cache(usage = CacheConcurrencyStrategy.READ_ONLY, region = "bidder")
 public class Bidder {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "bidder_id_generator")
+    @SequenceGenerator(name = "bidder_id_generator", sequenceName = "bidder_id_seq", allocationSize = 50)
     private Long id;
 
     @Column(name = "display_name", nullable = false, length = 80)

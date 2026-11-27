@@ -2,11 +2,6 @@ package com.example.auction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -33,10 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.example.auction.api.ApiModels.AuctionReport;
 import com.example.auction.api.ApiModels.AuctionResponse;
@@ -65,9 +58,6 @@ class AuctionApplicationTests {
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
-
-    @SpyBean
-    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void resetClock() {
@@ -137,17 +127,16 @@ class AuctionApplicationTests {
     }
 
     @Test
-    void creatingOneThousandUsersExecutesOneInsertPerUser() {
-        clearInvocations(jdbcTemplate);
+    void creatingOneThousandUsersExecutesIndividualHibernateInserts() {
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
 
         var result = userService.createUsers(1_000);
 
         assertThat(result.lastUserId() - result.firstUserId() + 1).isEqualTo(1_000);
-        verify(jdbcTemplate, times(1_000)).update(
-                eq("INSERT INTO bidder (display_name, email, created_at) VALUES (?, ?, ?)"),
-                any(),
-                any(),
-                any());
+        assertThat(statistics.getEntityInsertCount()).isEqualTo(1_000);
+        assertThat(statistics.getPrepareStatementCount()).isGreaterThanOrEqualTo(1_000L);
     }
 
     @Test
