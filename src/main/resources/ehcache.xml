@@ -1,0 +1,10 @@
+<config xmlns="http://www.ehcache.org/v3">
+    <cache alias="bidder">
+        <expiry>
+            <tti unit="minutes">15</tti>
+        </expiry>
+        <resources>
+            <heap unit="entries">10000</heap>
+        </resources>
+    </cache>
+</config>
