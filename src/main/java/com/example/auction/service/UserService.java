@@ -2,6 +2,8 @@ package com.example.auction.service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -59,7 +61,7 @@ public class UserService {
     }
 
     private long[] insertBatch(int start, int end) {
-        Instant now = clock.instant();
+        OffsetDateTime createdAt = clock.instant().atOffset(ZoneOffset.UTC);
         String batchToken = UUID.randomUUID().toString();
         List<Object[]> rows = new ArrayList<>(end - start);
         for (int index = start; index < end; index++) {
@@ -67,7 +69,7 @@ public class UserService {
             rows.add(new Object[]{
                     "Bidder-" + identifier,
                     "bidder-" + batchToken + "-" + identifier + "@auction.local",
-                    now
+                    createdAt
             });
         }
         jdbcTemplate.batchUpdate(
