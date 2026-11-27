@@ -23,6 +23,6 @@ class BookingIdentifierTests {
         Booking third = bookingRepository.saveAndFlush(new Booking("Guest Three"));
 
         assertThat(List.of(first.getId(), second.getId(), third.getId()))
-                .containsExactly(1L, 2L, 3L);
+                .containsExactly("0001", "0002", "0003");
     }
 }
