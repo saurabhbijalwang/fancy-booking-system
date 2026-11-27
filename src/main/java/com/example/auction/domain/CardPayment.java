@@ -1,16 +1,16 @@
 package com.example.auction.domain;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 @Entity
-@DiscriminatorValue("CARD")
+@Table(name = "card_payment")
 public class CardPayment extends Payment {
-    @Column(name = "card_last_four", length = 4)
+    @Column(name = "card_last_four", nullable = false, length = 4)
     private String cardLastFour;
 
-    @Column(name = "card_network", length = 32)
+    @Column(name = "card_network", nullable = false, length = 32)
     private String cardNetwork;
 
     protected CardPayment() {

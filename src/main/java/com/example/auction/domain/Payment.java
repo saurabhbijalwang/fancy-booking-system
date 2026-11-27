@@ -1,7 +1,6 @@
 package com.example.auction.domain;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,8 +11,9 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "payment")
-@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
-@DiscriminatorColumn(name = "payment_type", length = 32)
+// SINGLE_TABLE keeps subtype columns together; JOINED uses a parent and one table per subtype;
+// TABLE_PER_CLASS repeats inherited columns in each concrete subtype table.
+@Inheritance(strategy = InheritanceType.JOINED)
 public abstract class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.example.auction.domain.CardPayment;
 import com.example.auction.domain.NetBankingPayment;
+import com.example.auction.domain.Payment;
 import com.example.auction.domain.UpiPayment;
 import com.example.auction.repository.PaymentRepository;
 
@@ -23,36 +24,33 @@ class PaymentInheritanceTests {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void singleTableStoresNullColumnsForUnrelatedPaymentTypes() {
+    void joinedStrategyStoresSubtypeFieldsInDedicatedTables() {
         paymentRepository.saveAndFlush(new UpiPayment(1_000, "INR", "demo@upi"));
         paymentRepository.saveAndFlush(new CardPayment(2_000, "INR", "4242", "VISA"));
         paymentRepository.saveAndFlush(new NetBankingPayment(3_000, "INR", "Demo Bank", "account-ref"));
 
-        List<PaymentRow> rows = jdbcTemplate.query(
-                """
-                        SELECT payment_type, upi_id, card_last_four, card_network, bank_name, account_reference
-                        FROM payment
-                        """,
-                (resultSet, rowNumber) -> new PaymentRow(
-                        resultSet.getString("payment_type"),
-                        resultSet.getString("upi_id"),
-                        resultSet.getString("card_last_four"),
-                        resultSet.getString("card_network"),
-                        resultSet.getString("bank_name"),
-                        resultSet.getString("account_reference")));
+        List<Payment> payments = paymentRepository.findAll();
+        assertThat(payments).hasSize(3);
+        assertThat(payments).anySatisfy(payment -> {
+            assertThat(payment).isInstanceOf(UpiPayment.class);
+            assertThat(((UpiPayment) payment).getUpiId()).isEqualTo("demo@upi");
+        });
+        assertThat(payments).anySatisfy(payment -> {
+            assertThat(payment).isInstanceOf(CardPayment.class);
+            assertThat(((CardPayment) payment).getCardLastFour()).isEqualTo("4242");
+        });
+        assertThat(payments).anySatisfy(payment -> {
+            assertThat(payment).isInstanceOf(NetBankingPayment.class);
+            assertThat(((NetBankingPayment) payment).getBankName()).isEqualTo("Demo Bank");
+        });
 
-        assertThat(rows).containsExactlyInAnyOrder(
-                new PaymentRow("UPI", "demo@upi", null, null, null, null),
-                new PaymentRow("CARD", null, "4242", "VISA", null, null),
-                new PaymentRow("NET_BANKING", null, null, null, "Demo Bank", "account-ref"));
+        assertThat(countRows("payment")).isEqualTo(3);
+        assertThat(countRows("upi_payment")).isEqualTo(1);
+        assertThat(countRows("card_payment")).isEqualTo(1);
+        assertThat(countRows("net_banking_payment")).isEqualTo(1);
     }
 
-    private record PaymentRow(
-            String type,
-            String upiId,
-            String cardLastFour,
-            String cardNetwork,
-            String bankName,
-            String accountReference) {
+    private int countRows(String table) {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
     }
 }
