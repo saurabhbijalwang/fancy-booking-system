@@ -127,7 +127,7 @@ class AuctionApplicationTests {
     }
 
     @Test
-    void creatingOneThousandUsersExecutesIndividualHibernateInserts() {
+    void creatingOneThousandUsersUsesHibernateBatchesOfFifty() {
         Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.setStatisticsEnabled(true);
         statistics.clear();
@@ -136,7 +136,8 @@ class AuctionApplicationTests {
 
         assertThat(result.lastUserId() - result.firstUserId() + 1).isEqualTo(1_000);
         assertThat(statistics.getEntityInsertCount()).isEqualTo(1_000);
-        assertThat(statistics.getPrepareStatementCount()).isGreaterThanOrEqualTo(1_000L);
+        assertThat(statistics.getPrepareStatementCount()).isLessThan(1_000L);
+        assertThat(statistics.getFlushCount()).isGreaterThanOrEqualTo(20L);
     }
 
     @Test
