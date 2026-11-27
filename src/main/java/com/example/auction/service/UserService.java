@@ -21,6 +21,7 @@ import com.example.auction.repository.BidderRepository;
 public class UserService {
     private static final int MAX_USERS_PER_REQUEST = 1_000_000;
     private static final int MAX_USERS_PER_TRANSACTION = 2_000;
+    private static final int INSERT_BATCH_SIZE = 50;
 
     private final BidderRepository bidderRepository;
     private final Clock clock;
@@ -77,6 +78,10 @@ public class UserService {
                 firstId = bidder.getId();
             }
             lastId = bidder.getId();
+            if ((index - start + 1) % INSERT_BATCH_SIZE == 0 || index + 1 == end) {
+                entityManager.flush();
+                entityManager.clear();
+            }
         }
         return new long[]{firstId, lastId};
     }
