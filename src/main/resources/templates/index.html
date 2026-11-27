@@ -40,11 +40,12 @@
 
 <section>
     <h2>3. Place bids</h2>
-    <label>Auction ID <input id="auctionId" type="number" min="1"></label>
+    <label>Auction ID <input id="auctionId" type="number" min="1" onchange="startAuctionAutoRefresh()"></label>
     <label>User ID <input id="userId" type="number" min="1"></label>
     <button onclick="placeBid()">Bid +1,000</button>
     <button onclick="refreshAuction()">Refresh status</button>
     <div id="auctionStatus" class="status">No auction selected.</div>
+    <small>Status updates automatically every 2 seconds for the selected auction.</small>
     <p id="bidResult"></p>
 </section>
 
@@ -57,6 +58,10 @@
 
 <script>
     let stompClient;
+    let auctionRefreshTimer;
+    let auctionRefreshInFlight = false;
+    let monitoredAuctionId;
+    let latestAuction;
 
     function auctionId() {
         return Number(document.getElementById('auctionId').value);
@@ -100,6 +105,7 @@
                 `Started auction ${result.auctionNumber} (ID ${result.id}).`;
             connectToAuction(result.id);
             showAuction(result);
+            startAuctionAutoRefresh();
         } catch (error) {
             document.getElementById('auctionResult').textContent = error.message;
         }
@@ -121,14 +127,44 @@
     }
 
     async function refreshAuction() {
+        const id = auctionId();
+        if (!Number.isSafeInteger(id) || id < 1 || auctionRefreshInFlight) return;
+        auctionRefreshInFlight = true;
         try {
-            showAuction(await request(`/api/auctions/${auctionId()}`));
+            const auction = await request(`/api/auctions/${id}`);
+            if (auctionId() === id) showAuction(auction);
         } catch (error) {
-            document.getElementById('auctionStatus').textContent = error.message;
+            if (auctionId() === id) document.getElementById('auctionStatus').textContent = error.message;
+        } finally {
+            auctionRefreshInFlight = false;
         }
     }
 
+    function startAuctionAutoRefresh() {
+        if (auctionRefreshTimer) clearInterval(auctionRefreshTimer);
+        const id = auctionId();
+        if (!Number.isSafeInteger(id) || id < 1) {
+            monitoredAuctionId = undefined;
+            latestAuction = undefined;
+            return;
+        }
+        if (monitoredAuctionId !== id) {
+            monitoredAuctionId = id;
+            latestAuction = undefined;
+        }
+        refreshAuction();
+        auctionRefreshTimer = setInterval(refreshAuction, 2000);
+    }
+
     function showAuction(auction) {
+        if (auctionId() !== auction.id) return;
+        if (latestAuction && latestAuction.id === auction.id) {
+            if (auction.totalBids < latestAuction.totalBids
+                    || (auction.totalBids === latestAuction.totalBids
+                    && auction.remainingSeconds > latestAuction.remainingSeconds)
+                    || (latestAuction.status === 'ENDED' && auction.status !== 'ENDED')) return;
+        }
+        latestAuction = auction;
         document.getElementById('auctionStatus').textContent =
             `Auction ${auction.auctionNumber} — ${auction.status} — current bid: ${auction.currentBid} — ` +
             `accepted bids: ${auction.totalBids} — seconds remaining: ${auction.remainingSeconds}`;

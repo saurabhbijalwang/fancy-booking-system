@@ -65,7 +65,7 @@ GET /api/auctions/1/report.csv
 
 Auction numbers are zero-padded database IDs (`0001`, `0002`, ...). Bids arriving at or after the server-side end time are rejected. A user can bid multiple times. The report lists each accepted bid and each bidder's count/latest bid; it does not calculate money spent.
 
-The UI receives committed bid updates over SockJS/STOMP at `/ws` on `/topic/auctions/{auctionId}`.
+The UI receives committed bid updates over SockJS/STOMP at `/ws` on `/topic/auctions/{auctionId}`. When an auction ID is selected, its status also refreshes automatically every two seconds, so users viewing the same auction see current bid totals without manually refreshing.
 
 ## Gatling load test
 
