@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,7 +20,11 @@ import com.example.auction.repository.BidderRepository;
 @Service
 public class UserService {
     private static final int MAX_USERS_PER_REQUEST = 1_000_000;
-    private static final int INSERT_BATCH_SIZE = 2_000;
+    private static final int MAX_USERS_PER_TRANSACTION = 2_000;
+    private static final String INSERT_USER_SQL =
+            "INSERT INTO bidder (display_name, email, created_at) VALUES (?, ?, ?)";
+    private static final String FIND_INSERTED_USERS_SQL =
+            "SELECT MIN(id), MAX(id), COUNT(*) FROM bidder WHERE email LIKE ?";
 
     private final JdbcTemplate jdbcTemplate;
     private final BidderRepository bidderRepository;
@@ -46,37 +49,35 @@ public class UserService {
 
         Long firstId = null;
         Long lastId = null;
-        for (int offset = 0; offset < count; offset += INSERT_BATCH_SIZE) {
+        for (int offset = 0; offset < count; offset += MAX_USERS_PER_TRANSACTION) {
             int batchStart = offset;
-            int batchEnd = Math.min(offset + INSERT_BATCH_SIZE, count);
-            long[] insertedIds = transactionTemplate.execute(status -> insertBatch(batchStart, batchEnd));
-            if (insertedIds != null && insertedIds.length == 2) {
-                if (firstId == null) {
-                    firstId = insertedIds[0];
-                }
-                lastId = insertedIds[1];
+            int batchEnd = Math.min(offset + MAX_USERS_PER_TRANSACTION, count);
+            String batchToken = UUID.randomUUID().toString();
+            long[] insertedIds = transactionTemplate.execute(
+                    status -> insertBatch(batchStart, batchEnd, batchToken));
+            if (insertedIds == null || insertedIds.length != 2) {
+                throw new IllegalStateException("Could not create the bidder batch");
             }
+            if (firstId == null) {
+                firstId = insertedIds[0];
+            }
+            lastId = insertedIds[1];
         }
         return new UserBatchResponse(count, firstId, lastId);
     }
 
-    private long[] insertBatch(int start, int end) {
+    private long[] insertBatch(int start, int end, String batchToken) {
         OffsetDateTime createdAt = clock.instant().atOffset(ZoneOffset.UTC);
-        String batchToken = UUID.randomUUID().toString();
-        List<Object[]> rows = new ArrayList<>(end - start);
         for (int index = start; index < end; index++) {
             String identifier = "%08d".formatted(index + 1);
-            rows.add(new Object[]{
+            jdbcTemplate.update(
+                    INSERT_USER_SQL,
                     "Bidder-" + identifier,
                     "bidder-" + batchToken + "-" + identifier + "@auction.local",
-                    createdAt
-            });
+                    createdAt);
         }
-        jdbcTemplate.batchUpdate(
-                "INSERT INTO bidder (display_name, email, created_at) VALUES (?, ?, ?)",
-                rows);
         long[] ids = jdbcTemplate.queryForObject(
-                "SELECT MIN(id), MAX(id), COUNT(*) FROM bidder WHERE email LIKE ?",
+                FIND_INSERTED_USERS_SQL,
                 (resultSet, rowNumber) -> new long[]{
                         resultSet.getLong(1), resultSet.getLong(2), resultSet.getLong(3)
                 },
