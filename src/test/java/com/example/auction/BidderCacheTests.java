@@ -22,7 +22,7 @@ class BidderCacheTests {
     private EntityManagerFactory entityManagerFactory;
 
     @Test
-    void repeatedUserLookupsHitTheDatabaseWithoutSecondLevelCache() {
+    void repeatedUserLookupsUseTheSecondLevelCacheAcrossTransactions() {
         long userId = userService.createUsers(1).firstUserId();
         entityManagerFactory.getCache().evict(Bidder.class, userId);
         Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
@@ -33,7 +33,7 @@ class BidderCacheTests {
         assertThat(userService.findUserById(userId).id()).isEqualTo(userId);
         assertThat(userService.findUserById(userId).id()).isEqualTo(userId);
 
-        assertThat(statistics.getPrepareStatementCount()).isGreaterThanOrEqualTo(3L);
-        assertThat(statistics.getSecondLevelCacheHitCount()).isZero();
+        assertThat(statistics.getSecondLevelCacheMissCount()).isGreaterThanOrEqualTo(1L);
+        assertThat(statistics.getSecondLevelCacheHitCount()).isGreaterThanOrEqualTo(2L);
     }
 }
