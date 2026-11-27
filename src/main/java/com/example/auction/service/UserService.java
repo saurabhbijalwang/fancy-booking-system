@@ -94,4 +94,10 @@ public class UserService {
                 .map(UserResponse::from)
                 .toList();
     }
+
+    public UserResponse findUserById(long userId) {
+        Bidder bidder = bidderRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bidder not found: " + userId));
+        return UserResponse.from(bidder);
+    }
 }
