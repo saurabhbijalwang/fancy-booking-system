@@ -9,6 +9,6 @@ import org.springframework.data.repository.query.Param;
 import com.example.auction.domain.Bid;
 
 public interface BidRepository extends JpaRepository<Bid, Long> {
-    @Query("select b from Bid b where b.auction.id = :auctionId order by b.sequenceNumber")
+    @Query("select b from Bid b join fetch b.bidder where b.auction.id = :auctionId order by b.sequenceNumber")
     List<Bid> findReportBids(@Param("auctionId") Long auctionId);
 }
