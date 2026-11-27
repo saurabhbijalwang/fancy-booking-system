@@ -208,7 +208,7 @@ class AuctionApplicationTests {
     }
 
     @Test
-    void reportDemonstratesNPlusOneQueriesForDistinctBidders() {
+    void reportFetchesBiddersWithoutNPlusOneQueries() {
         long firstUserId = userService.createUsers(3).firstUserId();
         AuctionResponse auction = auctionService.createAuction("Report query test", 15, 0L);
         for (long userId = firstUserId; userId < firstUserId + 3; userId++) {
@@ -222,8 +222,9 @@ class AuctionApplicationTests {
         AuctionReport report = auctionService.getReport(auction.id());
 
         assertThat(report.bids()).hasSize(3);
-        // This baseline intentionally expects one bidder query per distinct bidder.
-        assertThat(statistics.getPrepareStatementCount()).isEqualTo(5);
+        assertThat(statistics.getEntityFetchCount()).isZero();
+        // The scheduled auction closer shares global statistics and can add one query.
+        assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(3);
     }
 
     @Test
